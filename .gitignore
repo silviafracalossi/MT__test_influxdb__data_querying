@@ -1,0 +1,6 @@
+.idea/*
+target/*
+logs/*
+src/main/java/TimeOutTrials.java
+*.iml
+desktop.ini
