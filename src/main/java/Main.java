@@ -57,7 +57,6 @@ public class Main {
     // Variables of queries
     static String window_aggr_duration = "1h";
     static String count_query = "SELECT COUNT(*) FROM " +measurement;
-    static String flux_query = "";
 
     // Logger names date formatter
     static Logger general_logger;
