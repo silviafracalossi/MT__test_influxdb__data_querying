@@ -21,6 +21,7 @@ import java.io.*;
 public class Main {
 
     // DB variables
+    static QueryApi queryApi;
     static InfluxDB influxDB = null;
     static InfluxDBClient influxDBClient;
 
@@ -46,8 +47,9 @@ public class Main {
     private static String org = "my-org";
     private static String bucket = "my-bucket";
 
-    // Query callers
-    static QueryApi queryApi;
+    // Index chosen
+    static int index_no=-1;
+    static String[] index_types = {"inmem", "tsi1"};
 
     // Logger names date formatter
     static Logger logger;
@@ -62,14 +64,16 @@ public class Main {
         try {
 
             // Getting information from user
-            if (args.length != 1) {
+            if (args.length != 2) {
                 talkToUser();
             } else {
                 requestedURL = (args[0].compareTo("l")==0) ? localURL : serverURL;
+                index_no = returnStringIndex(index_types, args[1]);
             }
 
             // Instantiate loggers
             logger = instantiateLogger("general");
+            logger.info("Index: "+index_no);
 
             // Opening a connection to the postgreSQL database
             logger.info("Connecting to the InfluxDB database...");
@@ -284,6 +288,14 @@ public class Main {
                 requestedURL = serverURL;
             }
         }
+
+        // Understanding what the index configured
+        while (index_no == -1) {
+            System.out.print("3. What is the index configured right now?"
+                    +" (Type \"inmem\" or \"tsi1\"): ");
+            response = sc.nextLine().replace(" ", "");
+            index_no = returnStringIndex(index_types, response);
+        }
     }
 
     // Instantiating the logger for the general information or errors
@@ -322,6 +334,16 @@ public class Main {
 
         // Returning the logger
         return logger;
+    }
+
+    // Returns the index_no of the specified string in the string array
+    public static int returnStringIndex(String[] list, String keyword) {
+        for (int i=0; i<list.length; i++) {
+            if (list[i].compareTo(keyword) == 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     //----------------------DATABASE----------------------------------------------
