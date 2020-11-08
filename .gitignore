@@ -2,5 +2,7 @@
 target/*
 logs/*
 src/main/java/TimeOutTrials.java
+src/main/java/Useless.java
+resources/server_influxdb_credentials.txt
 *.iml
 desktop.ini
