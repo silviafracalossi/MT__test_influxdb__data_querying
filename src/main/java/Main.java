@@ -47,6 +47,9 @@ public class Main {
     private static String org = "my-org";
     private static String bucket = "my-bucket";
 
+    // Information about data
+    static String data_loaded = "";
+
     // Index chosen
     static int index_no=-1;
     static String[] index_types = {"inmem", "tsi1"};
@@ -64,16 +67,17 @@ public class Main {
         try {
 
             // Getting information from user
-            if (args.length != 2) {
+            if (args.length != 3) {
                 talkToUser();
             } else {
                 requestedURL = (args[0].compareTo("l")==0) ? localURL : serverURL;
                 index_no = returnStringIndex(index_types, args[1]);
+                data_loaded = args[2];
             }
 
             // Instantiate loggers
             logger = instantiateLogger("general");
-            logger.info("Index: "+index_no);
+            logger.info("Index: "+index_types[index_no]);
 
             // Opening a connection to the postgreSQL database
             logger.info("Connecting to the InfluxDB database...");
@@ -88,7 +92,7 @@ public class Main {
 
             // Executing queries
             logger.info("Starting queries execution");
-            allData_rowsAverage();
+            allData_windowsAnalysis();
             lastTwoDays_timedMovingAverage();
             lastThirtyMinutes_avgMaxMin();
 
@@ -120,10 +124,10 @@ public class Main {
 
     //-----------------------FIRST QUERY----------------------------------------------
     // For windows of 30 minutes, calculate mean, max and min.
-    public static void allData_rowsAverage() {
+    public static void allData_windowsAnalysis() {
 
         // Printing method name
-        System.out.println("1) allData_rowsAverage");
+        System.out.println("1) allData_windowsAnalysis");
 
         // Creating the query
         String window_size = "30m";
@@ -155,7 +159,7 @@ public class Main {
                         " |> yield()\n";
 
         // Executing the query
-        logger.info("Executing rowsAverage on AllData");
+        logger.info("Executing windowsAnalysis on AllData");
         List<FluxTable> tables = queryApi.query(allData_query);
         logger.info("Completed execution");
 
@@ -175,9 +179,9 @@ public class Main {
                 logger.info("Result:" +
                         " From " +fluxRecord.getValueByKey("_start")+
                         " to " +fluxRecord.getValueByKey("_stop")+
+                        " AVG: " +df.format(fluxRecord.getValueByKey("_value_mean"))+
                         " Max: " +fluxRecord.getValueByKey("_value_max")+
-                        " Min: " +fluxRecord.getValueByKey("_value")+
-                        " AVG: " +df.format(fluxRecord.getValueByKey("_value_mean")));
+                        " Min: " +fluxRecord.getValueByKey("_value"));
             }
         }
     }
@@ -220,7 +224,7 @@ public class Main {
             // Iterating through all the rows
             for (FluxRecord fluxRecord : records) {
                 double value = Double.parseDouble(fluxRecord.getValueByKey("_value")+"");
-                logger.info("Result: "+fluxRecord.getValueByKey("_time") + ": " + df.format(value));
+                logger.info("Result: "+fluxRecord.getValueByKey("_time") + " " + df.format(value));
             }
         }
     }
@@ -233,8 +237,9 @@ public class Main {
         System.out.println("3) lastThirtyMinutes_avgMaxMin");
 
         // Creating the query
-        String start_thirty_minutes = "2017-12-01T11:00:00Z";
-        String end_thirty_minutes = "2017-12-01T11:30:00Z";
+        int year = (data_loaded.compareTo("1GB")==0) ? 2009 : 2017;
+        String start_thirty_minutes = year+"-12-01T11:00:00Z";
+        String end_thirty_minutes = year+"-12-01T11:30:00Z";
         String lastThirtyMinutes_query = "" +
                 " SELECT MEAN(value), MAX(value), MIN(value) " +
                 " FROM " +measurement+
@@ -247,21 +252,23 @@ public class Main {
         logger.info("Completed execution");
 
         // Printing the result
-        printThirdQuery(queryResult, start_thirty_minutes+" - "+end_thirty_minutes);
+        printThirdQuery(queryResult, start_thirty_minutes, end_thirty_minutes);
     }
 
     // Printing the results from the third query
-    public static void printThirdQuery (QueryResult qr, String time_range) {
+    public static void printThirdQuery (QueryResult qr, String start_thirty_minutes, String end_thirty_minutes) {
 
         // Getting all the variables
-        List<String> columns = qr.getResults().get(0).getSeries().get(0).getColumns();
         List<List<Object>> values = qr.getResults().get(0).getSeries().get(0).getValues();
 
-        // Printing
-        logger.info("Result: Time: " +time_range);
-        for (int i=1; i<columns.size(); i++) {
-            logger.info("Result: "+columns.get(i)+ ": " +values.get(0).get(i));
-        }
+        // Printing the result
+        logger.info("Result:" +
+                " From " +start_thirty_minutes+
+                " to " +end_thirty_minutes+
+                " AVG: " +df.format(values.get(0).get(1))+
+                " Max: " +values.get(0).get(2)+
+                " Min: " +values.get(0).get(3));
+
     }
 
     //-----------------------UTILITY----------------------------------------------
@@ -291,10 +298,17 @@ public class Main {
 
         // Understanding what the index configured
         while (index_no == -1) {
-            System.out.print("3. What is the index configured right now?"
+            System.out.print("What is the index configured right now?"
                     +" (Type \"inmem\" or \"tsi1\"): ");
             response = sc.nextLine().replace(" ", "");
             index_no = returnStringIndex(index_types, response);
+        }
+
+        // Understanding what the index configured
+        while (data_loaded.compareTo("1GB") != 0 && data_loaded.compareTo("light") != 0) {
+            System.out.print("What data is uploaded?"
+                    +" (Type \"1GB\" or \"light\"): ");
+            data_loaded = sc.nextLine().replace(" ", "");
         }
     }
 
@@ -359,11 +373,11 @@ public class Main {
 
         // Printing a message in case of failed connection
         if (response.getVersion().equalsIgnoreCase("unknown")) {
-            System.out.println("Failed connecting to the Database InfluxDB");
+            logger.severe("Failed connecting to the Database InfluxDB");
         } else {
 
             // Connecting the influxdb client for flux too
-            influxDBClient = InfluxDBClientFactory.create(localURL, token, org, bucket);
+            influxDBClient = InfluxDBClientFactory.create(requestedURL, token, org, bucket);
             queryApi = influxDBClient.getQueryApi();
         }
     }
@@ -373,7 +387,7 @@ public class Main {
         try {
             influxDB.close();
         } catch (NullPointerException e) {
-            System.out.println("Closing DB connection - NullPointerException");
+            logger.severe("Closing DB connection - NullPointerException");
         }
     }
 }
