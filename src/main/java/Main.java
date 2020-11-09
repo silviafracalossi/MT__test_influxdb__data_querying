@@ -382,7 +382,7 @@ public class Main {
 
             // Setting a larger read timeout
             OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder();
-            okHttpClientBuilder.readTimeout(5, TimeUnit.MINUTES);
+            okHttpClientBuilder.readTimeout(1, TimeUnit.HOURS);
             InfluxDBClientOptions options = new InfluxDBClientOptions.Builder()
                 .url(requestedURL)
                 .authenticateToken(token)
