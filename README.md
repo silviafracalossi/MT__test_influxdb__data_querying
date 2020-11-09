@@ -40,14 +40,14 @@ Since I couldn't manage to find a way with the command line, I used IntelliJ:
 -   Connect to the unibz VPN through Cisco AnyConnect;
 -   Open a terminal:
     -   Execute `ssh -t sfracalossi@ironlady.inf.unibz.it "cd /data/sfracalossi ; bash"`;
+    -   Execute `mkdir influxdb`;
     -   Execute `mkdir influxdb/standalone_query`;
     -   Execute `mkdir influxdb/standalone_query/resources`;
-    -   Execute `mkdir influxdb/standalone_query/data`;
     -   Execute `mkdir influxdb/standalone_query/logs`;
 -   Send the JAR and the help files from another terminal (not connected through SSH):
     -   Execute `scp standalone/DataQueryingTest.jar sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query`;
     -   Execute `scp resources/server_influxdb_credentials.txt sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query/resources`;
     -   Execute `scp resources/logging.properties sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query/resources`;
 -   Execute the JAR file (use the terminal connected through SSH):
-    -   Execute `cd standalone_query`;
+    -   Execute `cd influxdb/standalone_query`;
     -   Execute `nohup java -jar DataQueryingTest.jar [l/s] [index_name] [1GB/light] > logs/out.txt &`
