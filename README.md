@@ -6,7 +6,7 @@ Tester of the InfluxDB ability of querying time series data
 -   `logs/`, containing the log information of all the tests done;
 -   `resources/`, containing the database credentials file and the logger properties;
 -   `src/main/java`, containing the java source files;
--   `standalone/`, containing the JAR standalone version of this repository.
+-   `standalone/`, containing the JAR standalone version of this repository;
 -   `target/`, containing the generated .class files after compiling the java code.
 
 ## Requirements
