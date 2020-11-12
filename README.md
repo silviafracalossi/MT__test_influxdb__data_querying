@@ -50,4 +50,4 @@ Since I couldn't manage to find a way with the command line, I used IntelliJ:
     -   Execute `scp resources/logging.properties sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query/resources`;
 -   Execute the JAR file (use the terminal connected through SSH):
     -   Execute `cd influxdb/standalone_query`;
-    -   Execute `nohup java -jar DataQueryingTest.jar [l/s] [index_name] [1GB/light] [test_table/test_table_n] > logs/out.txt &`
+    -   Execute `nohup java -jar DataQueryingTest.jar [l/s] [index_name] [test_table/test_table_n] > logs/out.txt &`
