@@ -10,7 +10,6 @@ import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Pong;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
-
 import java.text.DecimalFormat;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
@@ -38,12 +37,14 @@ public class Main {
     static final String password = "root";
 
     // Database Objects names
-    static final String dbName = "test_table";
+    static String dbName = "";
     static final String measurement = "temperature";
     static final String retention_policy_name = "testPolicy";
-    static final String bucket_name = dbName + "/" + retention_policy_name;
-    static String overall_start_time = "2017-12-01T00:00:00Z";
-    static String overall_stop_time = "2017-12-05T00:00:00Z";
+    static String bucket_name;
+
+    // Time range
+    static String time_range, now;
+    final static String overall_start_time = "2000-00-00T00:00:00Z";
 
     // Other connection variables
     private static char[] token = "my-token".toCharArray();
@@ -70,19 +71,17 @@ public class Main {
         try {
 
             // Getting information from user
-            if (args.length != 3) {
+            if (args.length != 4) {
                 talkToUser();
             } else {
                 requestedURL = (args[0].compareTo("l") == 0) ? localURL : serverURL;
                 index_no = returnStringIndex(index_types, args[1]);
                 data_loaded = args[2];
+                dbName = args[3];
             }
 
-            // Changing the range based on the dataset loaded
-            if (data_loaded.compareTo("1GB") == 0) {
-                overall_start_time = "2009-01-01T00:00:00Z";
-                overall_stop_time = "2010-06-05T21:00:00Z";
-            }
+            // Defining bucket name
+            bucket_name = dbName + "/" + retention_policy_name;
 
             // Instantiate loggers
             logger = instantiateLogger("general");
@@ -94,10 +93,12 @@ public class Main {
 
             // Counting the number of rows inserted
             getDBCount();
+            getNow();
 
             // Executing queries
             logger.info("Starting queries execution");
             allData_windowsAnalysis();
+            mod_allData_windowsAnalysis();
             lastTwoDays_timedMovingAverage();
             lastThirtyMinutes_avgMaxMin();
 
@@ -126,16 +127,33 @@ public class Main {
         System.out.println("\n0) Count of rows: " + rows_count);
     }
 
+    // 0. Get Now - the max timestamp in the dataset
+    public static void getNow() {
+
+        // Printing method name
+        logger.info("==0. GetNow==");
+
+        // Creating and executing the query
+        String count_query = "SELECT * FROM "+measurement+" ORDER BY time DESC LIMIT 1";
+        QueryResult queryResult = influxDB.query(new Query(count_query, dbName));
+        now = queryResult.getResults().get(0).getSeries().get(0).getValues().get(0).get(0).toString();
+
+        // Printing the result
+        time_range = "start: " + overall_start_time + ", stop: " + now;
+        logger.info("Result: Max time in rows: " + now);
+        System.out.println("0) Max time in rows: " + now);
+    }
+
     //-----------------------FIRST QUERY----------------------------------------------
+
     // For windows of 30 minutes, calculate mean, max and min.
     public static void allData_windowsAnalysis() {
 
         // Printing method name
-        System.out.println("1) allData_windowsAnalysis");
+        System.out.println("\n1a) allData_windowsAnalysis");
 
         // Creating the query
         String window_size = "30m";
-        String time_range = "start: " + overall_start_time + ", stop: " + overall_stop_time;
         String allData_query = "mean = from(bucket: \"" + bucket_name + "\")\n" +
                 "  |> range(" + time_range + ")\n" +
                 "  |> filter(fn: (r) =>  r._measurement == \"" + measurement + "\" and (r._field == \"value\"))\n" +
@@ -190,6 +208,52 @@ public class Main {
         }
     }
 
+    //-----------------------MOD FIRST QUERY----------------------------------------------
+
+    // For windows of 30 minutes, calculate mean, max and min.
+    public static void mod_allData_windowsAnalysis() {
+
+        // Printing method name
+        System.out.println("1b) mod_allData_windowsAnalysis");
+
+        // Creating the query
+        String window_size = "30m";
+        String allData_query = "mean = from(bucket: \"" + bucket_name + "\")\n" +
+                "  |> range(" + time_range + ")\n" +
+                "  |> filter(fn: (r) =>  r._measurement == \"" + measurement + "\" and (r._field == \"value\"))\n" +
+                "  |> window(every: " + window_size + ") \n" +
+                "  |> mean()\n" +
+                "  |> drop(columns: [\"_field\", \"_measurement\", \"table\"])\n" +
+                "  |> yield() \n";
+
+        // Executing the query
+        logger.info("Executing mod_windowsAnalysis on AllData");
+        List<FluxTable> tables = queryApi.query(allData_query);
+        logger.info("Completed execution");
+
+        // Printing the result
+        mod_printFirstQuery(tables);
+    }
+
+    // Printing the results from the first query
+    public static void mod_printFirstQuery(List<FluxTable> tables) {
+
+        // Iterating through tables (in this case: only "temperature" table)
+        for (FluxTable fluxTable : tables) {
+            List<FluxRecord> records = fluxTable.getRecords();
+
+            // Iterating through all the rows
+            for (FluxRecord fluxRecord : records) {
+                logger.info("Result:" +
+                        " From " + fluxRecord.getValueByKey("_start") +
+                        " to " + fluxRecord.getValueByKey("_stop") +
+                        " AVG: " + fluxRecord.getValueByKey("_value") +
+                        " Max: " + fluxRecord.getValueByKey("_value") +
+                        " Min: " + fluxRecord.getValueByKey("_value"));
+            }
+        }
+    }
+
     //-----------------------SECOND QUERY----------------------------------------------
     // Every 2 minutes of data, computes the average of the current temperature value
     //      and the ones of the previous 4 minutes on last 2 days of data
@@ -199,11 +263,11 @@ public class Main {
         System.out.println("2) lastTwoDays_timedMovingAverage");
 
         // Creating the query
-        String start_two_days = "2017-12-03T00:00:00Z";
-        String end_two_days = "2017-12-05T00:00:00Z";
-        String lastTwoDays_query = "" +
+        String lastTwoDays_query = "import \"experimental\"\n" +
                 "from(bucket:\"" + bucket_name + "\")" +
-                " |> range(start: " + start_two_days + ", stop: " + end_two_days + ")" +
+                " |> range(start: experimental.subDuration( \n" +
+                "                  d: 2d, \n" +
+                "                  from: "+now+")) \n" +
                 " |> filter(fn:(r) => " +
                 "       r._measurement == \"" + measurement + "\"" +
                 " )" +
@@ -241,14 +305,10 @@ public class Main {
         System.out.println("3) lastThirtyMinutes_avgMaxMin");
 
         // Creating the query
-        int year = (data_loaded.compareTo("1GB") == 0) ? 2009 : 2017;
-        String start_thirty_minutes = year + "-12-01T11:00:00Z";
-        String end_thirty_minutes = year + "-12-01T11:30:00Z";
         String lastThirtyMinutes_query = "" +
                 " SELECT MEAN(value), MAX(value), MIN(value) " +
                 " FROM " + measurement +
-                " WHERE time > '" + start_thirty_minutes + "' " +
-                "   AND time < '" + end_thirty_minutes + "' ";
+                " WHERE time >= '" + now + "' - 30m ";
 
         // Executing the query
         logger.info("Executing AvgMaxMin on LastThirtyMinutes");
@@ -256,23 +316,22 @@ public class Main {
         logger.info("Completed execution");
 
         // Printing the result
-        printThirdQuery(queryResult, start_thirty_minutes, end_thirty_minutes);
+        printThirdQuery(queryResult, now);
     }
 
     // Printing the results from the third query
-    public static void printThirdQuery(QueryResult qr, String start_thirty_minutes, String end_thirty_minutes) {
+    public static void printThirdQuery(QueryResult qr, String now) {
 
         // Getting all the variables
         List<List<Object>> values = qr.getResults().get(0).getSeries().get(0).getValues();
 
         // Printing the result
         logger.info("Result:" +
-                " From " + start_thirty_minutes +
-                " to " + end_thirty_minutes +
+                " From " + values.get(0).get(0) +
+                " to " + now +
                 " AVG: " + df.format(values.get(0).get(1)) +
                 " Max: " + values.get(0).get(2) +
                 " Min: " + values.get(0).get(3));
-
     }
 
     //-----------------------UTILITY----------------------------------------------
@@ -283,7 +342,6 @@ public class Main {
         // Instantiating the input scanner
         Scanner sc = new Scanner(System.in);
         String response = "";
-        boolean correct_answer = false;
 
         // While the answer is not correct
         while (requestedURL.compareTo("") == 0) {
@@ -306,6 +364,13 @@ public class Main {
                     + " (Type \"inmem\" or \"tsi1\"): ");
             response = sc.nextLine().replace(" ", "");
             index_no = returnStringIndex(index_types, response);
+        }
+
+        // Understanding the DB table
+        while (dbName.compareTo("test_table") != 0 && dbName.compareTo("test_table_n") != 0) {
+            System.out.print("What is the name of the database?"
+                    + " (Type \"test_table\" or \"test_table_n\"): ");
+            dbName = sc.nextLine().replace(" ", "");
         }
 
         // Understanding what the index configured
