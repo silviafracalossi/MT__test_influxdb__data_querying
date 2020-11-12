@@ -51,9 +51,6 @@ public class Main {
     private static String org = "my-org";
     private static String bucket = "my-bucket";
 
-    // Information about data
-    static String data_loaded = "";
-
     // Index chosen
     static int index_no = -1;
     static String[] index_types = {"inmem", "tsi1"};
@@ -71,13 +68,12 @@ public class Main {
         try {
 
             // Getting information from user
-            if (args.length != 4) {
+            if (args.length != 3) {
                 talkToUser();
             } else {
                 requestedURL = (args[0].compareTo("l") == 0) ? localURL : serverURL;
                 index_no = returnStringIndex(index_types, args[1]);
-                data_loaded = args[2];
-                dbName = args[3];
+                dbName = args[2];
             }
 
             // Defining bucket name
@@ -371,13 +367,6 @@ public class Main {
             System.out.print("What is the name of the database?"
                     + " (Type \"test_table\" or \"test_table_n\"): ");
             dbName = sc.nextLine().replace(" ", "");
-        }
-
-        // Understanding what the index configured
-        while (data_loaded.compareTo("1GB") != 0 && data_loaded.compareTo("light") != 0) {
-            System.out.print("What data is uploaded?"
-                    + " (Type \"1GB\" or \"light\"): ");
-            data_loaded = sc.nextLine().replace(" ", "");
         }
     }
 
