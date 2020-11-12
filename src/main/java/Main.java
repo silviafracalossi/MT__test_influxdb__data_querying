@@ -11,6 +11,7 @@ import org.influxdb.dto.Pong;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
 import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
@@ -62,6 +63,11 @@ public class Main {
             "YYYY-MM-dd__HH.mm.ss");
     static DecimalFormat df = new DecimalFormat("#.00");
 
+    // Variables for the time conversion
+    static Calendar calendar;
+    static SimpleDateFormat db_dateFormat;
+    static SimpleDateFormat sdf;
+
 
     public static void main(String[] args) throws IOException {
 
@@ -78,6 +84,13 @@ public class Main {
 
             // Defining bucket name
             bucket_name = dbName + "/" + retention_policy_name;
+
+            // Setting variables for the time conversion
+            calendar = Calendar.getInstance();
+            db_dateFormat = new SimpleDateFormat("YYYY-MM-dd HH:mm:ss");
+            db_dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+            sdf = new SimpleDateFormat("YYYY-MM-dd HH:mm:ss");
+            sdf.setTimeZone(TimeZone.getTimeZone("CET"));
 
             // Instantiate loggers
             logger = instantiateLogger("general");
@@ -136,8 +149,8 @@ public class Main {
 
         // Printing the result
         time_range = "start: " + overall_start_time + ", stop: " + now;
-        logger.info("Result: Max time in rows: " + now);
-        System.out.println("0) Max time in rows: " + now);
+        logger.info("Result: Max time in rows: " + returnProperDate(now));
+        System.out.println("0) Max time in rows: " + returnProperDate(now));
     }
 
     //-----------------------FIRST QUERY----------------------------------------------
@@ -195,8 +208,8 @@ public class Main {
             // Iterating through all the rows
             for (FluxRecord fluxRecord : records) {
                 logger.info("Result:" +
-                        " From " + fluxRecord.getValueByKey("_start") +
-                        " to " + fluxRecord.getValueByKey("_stop") +
+                        " From " + returnProperDate(fluxRecord.getValueByKey("_start")+"") +
+                        " to " + returnProperDate(fluxRecord.getValueByKey("_stop")+"") +
                         " AVG: " + df.format(fluxRecord.getValueByKey("_value_mean")) +
                         " Max: " + fluxRecord.getValueByKey("_value_max") +
                         " Min: " + fluxRecord.getValueByKey("_value"));
@@ -241,8 +254,8 @@ public class Main {
             // Iterating through all the rows
             for (FluxRecord fluxRecord : records) {
                 logger.info("Result:" +
-                        " From " + fluxRecord.getValueByKey("_start") +
-                        " to " + fluxRecord.getValueByKey("_stop") +
+                        " From " + returnProperDate(fluxRecord.getValueByKey("_start")+"") +
+                        " to " + returnProperDate(fluxRecord.getValueByKey("_stop")+"") +
                         " AVG: " + fluxRecord.getValueByKey("_value") +
                         " Max: " + fluxRecord.getValueByKey("_value") +
                         " Min: " + fluxRecord.getValueByKey("_value"));
@@ -288,7 +301,8 @@ public class Main {
             // Iterating through all the rows
             for (FluxRecord fluxRecord : records) {
                 double value = Double.parseDouble(fluxRecord.getValueByKey("_value") + "");
-                logger.info("Result: " + fluxRecord.getValueByKey("_time") + " " + df.format(value));
+                logger.info("Result: " + returnProperDate(fluxRecord.getValueByKey("_time")+"")
+                        + " " + df.format(value));
             }
         }
     }
@@ -323,8 +337,8 @@ public class Main {
 
         // Printing the result
         logger.info("Result:" +
-                " From " + values.get(0).get(0) +
-                " to " + now +
+                " From " + returnProperDate(values.get(0).get(0)+"") +
+                " to " + returnProperDate(now) +
                 " AVG: " + df.format(values.get(0).get(1)) +
                 " Max: " + values.get(0).get(2) +
                 " Min: " + values.get(0).get(3));
@@ -417,6 +431,66 @@ public class Main {
         }
         return -1;
     }
+
+    // Converting to local timezone
+    public static String returnProperDate(String date) {
+        try {
+            String start = date
+                    .replace("T", " ")
+                    .replace("Z", "");
+            calendar = Calendar.getInstance();
+            calendar.setTime(db_dateFormat.parse(start));
+            String converted_string = sdf.format(calendar.getTime());
+            String final_date = "";
+            if (converted_string.substring(11, 13).compareTo("00") == 0) {
+                final_date += getNextDay(start.substring(0, 10));
+            } else {
+                final_date += start.substring(0, 10);
+            }
+            return final_date +"T"+ converted_string.substring(11);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return date;
+    }
+
+    public static String getNextDay(String date) {
+        String[] splitted = date.split("-");
+        int year = Integer.parseInt(splitted[0]);
+        int month = Integer.parseInt(splitted[1]);
+        int day = Integer.parseInt(splitted[2]);
+        int[] thirty_months = {2, 4, 6, 9, 11};
+        int[] thirty_one_months = {1, 3, 5, 7, 8, 10, 12};
+        String final_date = "";
+        if ((day==28 && year%4==0) ||
+                (day==30 && intInArray(thirty_months, month)) ||
+                (day==31 && intInArray(thirty_one_months, month))) {
+            final_date = getNextMonthAndYear(month, year)+"-01";
+        } else {
+            final_date = year+"-"+
+                    ((month)<10 ? "0":"")+(month)+"-"+
+                    ((day+1)<10 ? "0":"") + (day+1);
+        }
+        return final_date;
+    }
+
+    public static String getNextMonthAndYear(int month, int year) {
+        if (month == 12) {
+            return (year+1)+"-01";
+        } else {
+            return (year)+"-"+ ((month+1)<10 ? "0":"")+(month+1);
+        }
+    }
+
+    public static boolean intInArray(int[] arr, int number) {
+        for (int element : arr) {
+            if (element == number) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     //----------------------DATABASE----------------------------------------------
 
