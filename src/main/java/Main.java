@@ -44,8 +44,7 @@ public class Main {
     static String bucket_name;
 
     // Time range
-    static String time_range, now;
-    final static String overall_start_time = "2000-00-00T00:00:00Z";
+    static String time_range, now, first_insertion;
 
     // Other connection variables
     private static char[] token = "my-token".toCharArray();
@@ -102,6 +101,7 @@ public class Main {
 
             // Counting the number of rows inserted
             getDBCount();
+            getFirstInsertion();
             getNow();
 
             // Executing queries
@@ -148,9 +148,28 @@ public class Main {
         now = queryResult.getResults().get(0).getSeries().get(0).getValues().get(0).get(0).toString();
 
         // Printing the result
-        time_range = "start: " + overall_start_time + ", stop: " + now;
         logger.info("Result: Max time in rows: " + returnProperDate(now));
         System.out.println("0) Max time in rows: " + returnProperDate(now));
+
+        time_range = "start: " + first_insertion + ", stop: " + now;
+        logger.info("Result: Time range: " + time_range);
+        System.out.println("0) Time range: " + time_range);
+    }
+
+    // 0. Get First Insertion - the min timestamp in the dataset
+    public static void getFirstInsertion() {
+
+        // Printing method name
+        logger.info("==0. GetFirstInsertion==");
+
+        // Creating and executing the query
+        String count_query = "SELECT * FROM "+measurement+" ORDER BY time ASC LIMIT 1";
+        QueryResult queryResult = influxDB.query(new Query(count_query, dbName));
+        first_insertion = queryResult.getResults().get(0).getSeries().get(0).getValues().get(0).get(0).toString();
+
+        // Printing the result
+        logger.info("Result: Min time in rows: " + returnProperDate(first_insertion));
+        System.out.println("0) Min time in rows: " + returnProperDate(first_insertion));
     }
 
     //-----------------------FIRST QUERY----------------------------------------------
