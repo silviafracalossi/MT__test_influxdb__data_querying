@@ -14,8 +14,6 @@ The repository is a Maven project. Therefore, the dependency that will automatic
 -   InfluxDB JDBC Driver (2.8)
 
 ## Installation and running the project
--   Inside the folder `resources`,
-    -   Create a file called `server_influxdb_credentials.txt`, containing the username (first line) and the password (second line) to access the server InfluxDB database;
 -   Run the project
     -   Open IntelliJ IDEA
     -   Compile the maven project
@@ -46,7 +44,6 @@ Since I couldn't manage to find a way with the command line, I used IntelliJ:
     -   Execute `mkdir influxdb/standalone_query/logs`;
 -   Send the JAR and the help files from another terminal (not connected through SSH):
     -   Execute `scp standalone/DataQueryingTest.jar sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query`;
-    -   Execute `scp resources/server_influxdb_credentials.txt sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query/resources`;
     -   Execute `scp resources/logging.properties sfracalossi@ironlady.inf.unibz.it:/data/sfracalossi/influxdb/standalone_query/resources`;
 -   Execute the JAR file (use the terminal connected through SSH):
     -   Execute `cd influxdb/standalone_query`;
